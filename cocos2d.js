@@ -39,17 +39,17 @@
         SingleEngineFile:'lib/Cocos2d-html5-v2.2.2.min.js',
         //SingleEngineFile:'http://waitingfy.u.qiniudn.com/Cocos2d-html5-v2.2.2.min.js',
         appFiles:[
-//            'src/resource.js',
-//            'src/Array2D.js',
-//            'src/Cell.js',
-//            'src/Heap.js',
-//            'src/Snake.js',
-//            'src/WelcomeLayer.js',
-//            'src/Settings.js',
-//            'src/GameArea.js',
-//            'src/ResultLayer.js',
-//            'src/MainLayer.js'//add your own files in order here
-              'src/Game.all.js'
+            'src/resource.js',
+            'src/Array2D.js',
+            'src/Cell.js',
+            'src/Heap.js',
+            'src/Snake.js',
+            'src/WelcomeLayer.js',
+            'src/Settings.js',
+            'src/GameArea.js',
+            'src/ResultLayer.js',
+            'src/MainLayer.js'//add your own files in order here
+//              'src/Game.all.js'
         ]
     };
 

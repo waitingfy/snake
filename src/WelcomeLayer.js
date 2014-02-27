@@ -88,7 +88,7 @@ var WelcomeLayer = cc.Layer.extend({
     AIMenuCallBack:function(sender){
 //        gSharedEngine.playEffect(EFFECT_BUTTON_CHICK);
         gGameMode = GameMode.kGameJustAI;
-        gGameData.snakeMoveSpeed = 0.02;
+        gGameData.snakeMoveSpeed = 0.01;
         var nextScene = cc.Scene.create();
         var nextLayer = new MainGameLayer;
         nextScene.addChild(nextLayer);

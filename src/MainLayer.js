@@ -408,6 +408,7 @@ var MainGameLayer = cc.Layer.extend({
             if(this.isMoveAlready == false){
                 nextCell = this.getNextCellByDirection(this.snake.getHead(), this.moveDirection);
                 this.moveSnakeAction(this.snake, nextCell.getX(), nextCell.getY());
+                //this.getNextCellBySnakeAI();
                 this.checkEatApple(this.snake);
                 this.isMoveAlready = true;
 
@@ -520,13 +521,28 @@ var MainGameLayer = cc.Layer.extend({
         }
 
     },
-    startPathFinding:function(startX, startY, goalX, goalY){
+    compareByDistanceBetweenGoal : function(c1, c2){
+        if(c1 != null && c2 != null){
+            var distanceOfC1AndGoal =
+                Math.sqrt(Math.pow(g_goalX - c1.getX(),2) + Math.pow(g_goalY - c1.getY(),2));
+
+            var distanceOfC2AndGoal =
+                Math.sqrt(Math.pow(g_goalX - c2.getX(),2) + Math.pow(g_goalY - c2.getY(),2));
+            if(distanceOfC1AndGoal <= distanceOfC2AndGoal){
+                return true;
+            }else{
+                return false;
+            }
+        }
+
+    },
+    startPathFinding:function(startX, startY, goalX, goalY,compareMethod){
         this.clearPath();
         g_goalX = goalX;
         g_goalX = goalY;
 
         var startCell = this.gameMap.Get(startX, startY);
-        var vecCells = new Waitingfy.Heap([], this.compareByDistanceBetweenStartAndGoal);
+        var vecCells = new Waitingfy.Heap([], compareMethod);
         //vecCells.push(startCell);
         vecCells.push_heap(startCell);
         startCell.setMarked(true);
@@ -600,10 +616,11 @@ var MainGameLayer = cc.Layer.extend({
 
 
     },
-    getNextCellBySnakeAI:function(){
-        var canFindPath = this.startPathFinding(this.snake.getHead().getX(), this.snake.getHead().getY(),
-            this.appleCell.getX(), this.appleCell.getY());
+    tryUseAStarToEatApple:function(){
+        var canFindPath = false;
         var canFindTail = false;
+        canFindPath = this.startPathFinding(this.snake.getHead().getX(), this.snake.getHead().getY(),
+            this.appleCell.getX(), this.appleCell.getY(),this.compareByDistanceBetweenStartAndGoal);
         if(canFindPath){//if snake can find apple, try to eat the apple,after move a fake snake, check it can find path to its tail or not.
             var copySnake = this.snake.fork();
             var savePath = this.deqPathCell;
@@ -615,7 +632,7 @@ var MainGameLayer = cc.Layer.extend({
             //do not forget after the fake snake eat the apple, its length change
             copySnake.getSnakeBody().push(copySnake.getPreviousTail());
             canFindTail = this.startPathFinding(copySnake.getHead().getX(), copySnake.getHead().getY(),
-                copySnake.getTail().getX(), copySnake.getTail().getY());
+                copySnake.getTail().getX(), copySnake.getTail().getY(),this.compareByDistanceBetweenStartAndGoal);
             //restore snake
             this.restoreSnakeMarkInMap(this.snake.getSnakeBody());
             if(canFindTail){
@@ -624,43 +641,107 @@ var MainGameLayer = cc.Layer.extend({
         }
         //if can not find path to apple or can not find path to its tail, we just move to a cell that is farthest to the apple
         // and still can find the path to its tail
-        if(canFindPath == false || canFindTail == false){
-            this.safePathCells = [];
-            var nextCellX, nextCellY;
-            var nextCell;
-            var maxDistanceBetweenNextCellAndGoal = 0;
-            var distanceWithGoal = 0;
-            var maxDistanceCell = null;
-            for(var i = 0; i < 4; i++){
-                nextCellX = this.snake.getHead().getX() + DIRECTION[i][0];
-                nextCellY = this.snake.getHead().getY() + DIRECTION[i][1];
-                if(this.isLegalCell(nextCellX, nextCellY)){
-                    nextCell = this.gameMap.Get(nextCellX, nextCellY);
-                    if(nextCell.getIsCanBeHit() == false ){
-                        var copySnake = this.snake.fork();
-                        this.computerMoveSnakeAction(copySnake,nextCell, true);
-                        if(nextCell.isSamePosition(this.appleCell)){
-                            copySnake.getSnakeBody().push(this.snake.getTail());
-                        }
-                        var canFindTheTail = this.startPathFinding(nextCell.getX(), nextCell.getY(),copySnake.getTail().getX(),
-                            copySnake.getTail().getY());
-                        this.restoreSnakeMarkInMap(this.snake.getSnakeBody());
-                        if(canFindTheTail){
-                            distanceWithGoal = Math.pow(this.appleCell.getX() - nextCellX, 2) + Math.pow(this.appleCell.getY() - nextCellY, 2) ;
-                            if(distanceWithGoal > maxDistanceBetweenNextCellAndGoal){
-                                maxDistanceBetweenNextCellAndGoal = distanceWithGoal;
-                                maxDistanceCell = nextCell;
-                            }
+        if(canFindPath == false || canFindTail == false ){
+            return this.getACellThatIsFarthestToGoal();
+        }
+    },
+    tryMoveToCellThatIsFarthestToGoal:function(){
+        var canFindPath = false;
+        var canFindTail = false;
+        var nextCellX, nextCellY;
+        var nextCell;
+        var distanceBetweenGoal;
+        var maxDistanceBetweenNextCellAndGoal = 0;
+        var maxDistanceCell = null;
+        var nextCellIsGoal = false;
+        for(var i = 0; i < 4; i++){
+            nextCellX = this.snake.getHead().getX() + DIRECTION[i][0];
+            nextCellY = this.snake.getHead().getY() + DIRECTION[i][1];
+            if(this.isLegalCell(nextCellX, nextCellY)){
+                nextCell = this.gameMap.Get(nextCellX, nextCellY);
+                if(nextCell.getIsCanBeHit() == false ){
+                    var copySnake = this.snake.fork();
+                    this.computerMoveSnakeAction(copySnake,nextCell, true);
+                    if(nextCell.isSamePosition(this.appleCell)){
+                        copySnake.getSnakeBody().push(this.snake.getTail());
+                        nextCellIsGoal = true;
+                    }
+                    var canFindTheTail = this.startPathFinding(nextCell.getX(), nextCell.getY(),copySnake.getTail().getX(),
+                        copySnake.getTail().getY(),this.compareByDistanceBetweenStartAndGoal);
+                    if(nextCellIsGoal && canFindTheTail){
+                        return nextCell;
+                    }
+                    distanceBetweenGoal = this.deqPathCell.length;
+                    canFindPath = this.startPathFinding(nextCell.getX(),  nextCell.getY(),
+                        this.appleCell.getX(), this.appleCell.getY(),this.compareByDistanceBetweenStartAndGoal);
+                    this.restoreSnakeMarkInMap(this.snake.getSnakeBody());
+                    if(canFindTheTail && canFindPath){
+                        if(distanceBetweenGoal > maxDistanceBetweenNextCellAndGoal){
+                            maxDistanceBetweenNextCellAndGoal = distanceBetweenGoal;
+                            maxDistanceCell = nextCell;
                         }
                     }
                 }
             }
-            //can not find cell, so just move to the tail, a snake can not hit its tail
-            if(maxDistanceCell == null){
-                maxDistanceCell = this.snake.getTail();
-            }
-            return maxDistanceCell;
         }
+        if(maxDistanceCell != null){
+            return maxDistanceCell;
+        }else{
+            return this.getACellThatIsFarthestToGoal();
+        }
+    },
+
+    getACellThatIsFarthestToGoal:function(){
+        this.safePathCells = [];
+        var nextCellX, nextCellY;
+        var nextCell;
+        var maxDistanceBetweenNextCellAndGoal = 0;
+        var distanceWithGoal = 0;
+        var maxDistanceCell = null;
+        for(var i = 0; i < 4; i++){
+            nextCellX = this.snake.getHead().getX() + DIRECTION[i][0];
+            nextCellY = this.snake.getHead().getY() + DIRECTION[i][1];
+            if(this.isLegalCell(nextCellX, nextCellY)){
+                nextCell = this.gameMap.Get(nextCellX, nextCellY);
+                if(nextCell.getIsCanBeHit() == false ){
+                    var copySnake = this.snake.fork();
+                    this.computerMoveSnakeAction(copySnake,nextCell, true);
+                    if(nextCell.isSamePosition(this.appleCell)){
+                        copySnake.getSnakeBody().push(this.snake.getTail());
+                    }
+                    var canFindTheTail = this.startPathFinding(nextCell.getX(), nextCell.getY(),copySnake.getTail().getX(),
+                        copySnake.getTail().getY(),this.compareByDistanceBetweenStartAndGoal);
+                    this.restoreSnakeMarkInMap(this.snake.getSnakeBody());
+                    if(canFindTheTail){
+                        distanceWithGoal = Math.pow(this.appleCell.getX() - nextCellX, 2) + Math.pow(this.appleCell.getY() - nextCellY, 2) ;
+                        if(distanceWithGoal > maxDistanceBetweenNextCellAndGoal){
+                            maxDistanceBetweenNextCellAndGoal = distanceWithGoal;
+                            maxDistanceCell = nextCell;
+                        }
+                    }
+                }
+            }
+        }
+        //can not find cell, so just move to the tail, a snake can not hit its tail
+        if(maxDistanceCell == null){
+            maxDistanceCell = this.snake.getTail();
+        }
+        return maxDistanceCell;
+    },
+
+
+    getNextCellBySnakeAI:function(){
+        //cc.log("snake lenght:%d", this.snake.getLength());
+        var canFindPath = false;
+        var canFindTail = false;
+        if(this.snake.getLength() <= xLineCount * yLineCount / 2){
+             return this.tryUseAStarToEatApple();
+        }else{
+            //cc.log("special method, try to keep away with goal");
+             return this.tryMoveToCellThatIsFarthestToGoal();
+        }
+
+
 
     },
     showGameResult:function(){
